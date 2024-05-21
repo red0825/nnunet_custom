@@ -37,7 +37,7 @@ Run this command:
 python3 train_script.py -d task_id -tr CUSTOM_TRAINER -f FOLD
 ```
 
-## Step 5: Inference
+### Step 5: Inference
 Run this command:
 ```
 python3 predict_script.py -i INPUT_FOLDER -o OUTPUT_FOLDER -d task_id -tr CUSTOM_TRAINER -f FOLD --save_probabilities
