@@ -10,14 +10,14 @@ red0825/nnunet-custom:v3
 ## Training
 The detail official instruction of nnUNet training configuration and usage can be found in: [nnUNet](https://github.com/MIC-DKFZ/nnunet)
 
-### Step 1: prepare data set for training
+### Step 1: Prepare data set for training
 1. Download the [M&Ms dataset](https://www.ub.edu/mnms/).
 2. Run this command:
 ```
 python3 .../nnunetv2/dataset_conversion/Dataset114_MNMs.py -i MNMS_FOLDER
 ```
 
-### Step 2: export paths
+### Step 2: Export paths
 Run this command:
 ```
 export nnUNet_raw_data_base=".../nnUNet_raw"
@@ -25,13 +25,13 @@ export nnUNet_preprocessed=".../nnUNet_preprocessed"
 export nnUNet_results=".../nnUNet_trained_models"
 ```
 
-### Step 3: plan and preprocess
+### Step 3: Plan and preprocess
 Run this command:
 ```
 python3 plan_and_preprocess_script -t task_id --verify_dataset_integrity
 ```
 
-### Step 4: train the dataset
+### Step 4: Train the dataset
 Run this command:
 ```
 python3 train_script.py -d task_id -tr CUSTOM_TRAINER -f FOLD
