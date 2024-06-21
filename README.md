@@ -4,7 +4,7 @@ Instructions to create a training for nnUNet.
 ## Docker image for nnUNet customization
 All required packages are installed except for nnunet.
 ```
-red0825/nnunet-custom:nnunet-custom:exclude-nnunet
+red0825/nnunet-custom:exclude-nnunet
 ```
 
 ## Training
@@ -31,7 +31,7 @@ export nnUNet_results=".../nnUNet_trained_models"
 ### Step 3: Plan and preprocess
 Run this command:
 ```
-python3 plan_and_preprocess_script -t 114 --verify_dataset_integrity
+python3 plan_and_preprocess_script.py -t 114 --verify_dataset_integrity
 ```
 
 ### Step 4: Train the dataset
