@@ -35,7 +35,7 @@ python3 plan_and_preprocess_script.py -t 114 --verify_dataset_integrity
 
 ### Step 4: Train the dataset
 #### Set CUSTOM_TRAINER. Without the -tr option, the default nnU-Net learning method is adopted.
-#### I created a couple of tr options...
+#### I created a couple of CUSTOM_TRAINER...
 * nnUNetTrainerExponentialLogarithmicCosV2
 * nnUNetTrainerLogCoshDice1000epochs
 * nnUNetTrainerFocalTversky1000epochs
