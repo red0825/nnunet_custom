@@ -12,20 +12,19 @@ The detail official instruction of nnUNet training configuration and usage can b
 
 Below is an example using the M&Ms dataset.
 
-### Step 1: Prepare data set for training
+### Step 1: Prepare data set for training and export paths
 1. Download the [M&Ms dataset](https://www.ub.edu/mnms/).
 2. Run this command:
-```
-python3 .../nnunetv2/dataset_conversion/Dataset114_MNMs.py -i MNMS_FOLDER
-```
-
-### Step 2: Export paths
-
-Run this command:
 ```
 export nnUNet_raw_data_base=".../nnUNet_raw"
 export nnUNet_preprocessed=".../nnUNet_preprocessed"
 export nnUNet_results=".../nnUNet_trained_models"
+```
+
+### Step 2: Move data to the nnUNet_raw_data_base location and change the directory structure.
+Run this command:
+```
+python3 .../nnunetv2/dataset_conversion/Dataset114_MNMs.py -i MNMS_FOLDER
 ```
 
 ### Step 3: Plan and preprocess
