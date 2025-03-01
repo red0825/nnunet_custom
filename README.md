@@ -1,4 +1,4 @@
-# nnunet_loss_custom
+# nnunet_custom
 Instructions to create a training for nnUNet.
 
 ## Docker image for nnUNet customization
@@ -36,10 +36,16 @@ python3 plan_and_preprocess_script.py -t 114 --verify_dataset_integrity
 ### Step 4: Train the dataset
 #### Set CUSTOM_TRAINER. Without the -tr option, the default nnU-Net learning method is adopted.
 #### I created a couple of CUSTOM_TRAINER...
+
+##### Loss custom
 * nnUNetTrainerExponentialLogarithmicCosV2
 * nnUNetTrainerLogCoshDice1000epochs
 * nnUNetTrainerFocalTversky1000epochs
 * nnUNetTrainerLogCoshDice1000epochs
+
+##### Network custom
+* nnUNetTrainer
+
 
 Run this command(2D U-Net):
 ```
