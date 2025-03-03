@@ -21,5 +21,5 @@ export nnUNet_preprocessed=".../nnUNet_preprocessed"
 export nnUNet_results=".../nnUNet_trained_models"
 ```
 ### Instructions
-- Loss Custom
+- [Loss Custom](documents/Loss_Custom.md)
 - UPL-SFDA 
