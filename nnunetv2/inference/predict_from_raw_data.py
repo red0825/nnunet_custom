@@ -639,7 +639,7 @@ class nnUNetPredictor(object):
         empty_cache(self.device)
         return predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
 
-class nnUNetPredictorUPLSFDA(nnUNetPredictor):
+class nnUNetPredictorSFDA(nnUNetPredictor):
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
         prediction = self.network.save_img(x, self.device)
@@ -667,7 +667,7 @@ class nnUNetPredictorUPLSFDA(nnUNetPredictor):
             prediction /= num_predictons
         return prediction
 
-class nnUNetPredictorUPLSFDAforTEST(nnUNetPredictor):
+class nnUNetPredictorSFDAforTEST(nnUNetPredictor):
     def predict_from_files(self,
                            list_of_lists_or_source_folder: Union[str, List[List[str]]],
                            output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
@@ -1026,7 +1026,7 @@ def predict_entry_point():
     #                           part_id=args.part_id,
     #                           device=device)
 
-def predict_entry_point_upl_sfda():
+def predict_entry_point_sfda():
     import argparse
     parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
                                                  'you want to manually specify a folder containing a trained nnU-Net '
@@ -1043,7 +1043,7 @@ def predict_entry_point_upl_sfda():
     parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
                         help='Plans identifier. Specify the plans in which the desired configuration is located. '
                              'Default: nnUNetPlans')
-    parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainerUPLSFDAV2',
+    parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainerSFDA',
                         help='What nnU-Net trainer class was used for training? Default: nnUNetTrainer')
     parser.add_argument('-c', type=str, required=False, default='3d_fullres',
                         help='nnU-Net configuration that should be used for prediction. Config must be located '
@@ -1120,7 +1120,7 @@ def predict_entry_point_upl_sfda():
     else:
         device = torch.device('mps')
 
-    predictor = nnUNetPredictorUPLSFDAforTEST(tile_step_size=args.step_size,
+    predictor = nnUNetPredictorSFDAforTEST(tile_step_size=args.step_size,
                                 use_gaussian=True,
                                 use_mirroring=not args.disable_tta,
                                 perform_everything_on_gpu=True,
