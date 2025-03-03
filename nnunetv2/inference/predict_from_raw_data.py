@@ -639,6 +639,171 @@ class nnUNetPredictor(object):
         empty_cache(self.device)
         return predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
 
+class nnUNetPredictorUPLSFDA(nnUNetPredictor):
+    def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
+        mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
+        prediction = self.network.save_img(x, self.device)
+
+        if mirror_axes is not None:
+            # check for invalid numbers in mirror_axes
+            # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
+            assert max(mirror_axes) <= len(x.shape) - 3, 'mirror_axes does not match the dimension of the input!'
+
+            num_predictons = 2 ** len(mirror_axes)
+            if 0 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (2,)), self.device), (2,))
+            if 1 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (3,)), self.device), (3,))
+            if 2 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (4,)), self.device), (4,))
+            if 0 in mirror_axes and 1 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (2, 3)), self.device), (2, 3))
+            if 0 in mirror_axes and 2 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (2, 4)), self.device), (2, 4))
+            if 1 in mirror_axes and 2 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (3, 4)), self.device), (3, 4))
+            if 0 in mirror_axes and 1 in mirror_axes and 2 in mirror_axes:
+                prediction += torch.flip(self.network.save_img(torch.flip(x, (2, 3, 4)), self.device), (2, 3, 4))
+            prediction /= num_predictons
+        return prediction
+
+class nnUNetPredictorUPLSFDAforTEST(nnUNetPredictor):
+    def predict_from_files(self,
+                           list_of_lists_or_source_folder: Union[str, List[List[str]]],
+                           output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
+                           save_probabilities: bool = False,
+                           overwrite: bool = True,
+                           num_processes_preprocessing: int = default_num_processes,
+                           num_processes_segmentation_export: int = default_num_processes,
+                           folder_with_segs_from_prev_stage: str = None,
+                           num_parts: int = 1,
+                           part_id: int = 0):
+        """
+        This is nnU-Net's default function for making predictions. It works best for batch predictions
+        (predicting many images at once).
+        """
+        if isinstance(output_folder_or_list_of_truncated_output_files, str):
+            output_folder = output_folder_or_list_of_truncated_output_files
+        elif isinstance(output_folder_or_list_of_truncated_output_files, list):
+            output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
+        else:
+            output_folder = None
+
+        ########################
+        # let's store the input arguments so that its clear what was used to generate the prediction
+        if output_folder is not None:
+            my_init_kwargs = {}
+            for k in inspect.signature(self.predict_from_files).parameters.keys():
+                my_init_kwargs[k] = locals()[k]
+            my_init_kwargs = deepcopy(
+                my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
+            recursive_fix_for_json_export(my_init_kwargs)
+            maybe_mkdir_p(output_folder)
+            save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
+
+            # we need these two if we want to do things with the predictions like for example apply postprocessing
+            save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
+            save_json(self.plans_manager.plans, join(output_folder, 'plans.json'), sort_keys=False)
+        #######################
+
+        # check if we need a prediction from the previous stage
+        if self.configuration_manager.previous_stage_name is not None:
+            assert folder_with_segs_from_prev_stage is not None, \
+                f'The requested configuration is a cascaded network. It requires the segmentations of the previous ' \
+                f'stage ({self.configuration_manager.previous_stage_name}) as input. Please provide the folder where' \
+                f' they are located via folder_with_segs_from_prev_stage'
+
+        # sort out input and output filenames
+        list_of_lists_or_source_folder, output_filename_truncated, seg_from_prev_stage_files = \
+            self._manage_input_and_output_lists(list_of_lists_or_source_folder,
+                                                output_folder_or_list_of_truncated_output_files,
+                                                folder_with_segs_from_prev_stage, overwrite, part_id, num_parts,
+                                                save_probabilities)
+        if len(list_of_lists_or_source_folder) == 0:
+            return
+
+        data_iterator = self._internal_get_data_iterator_from_lists_of_filenames(list_of_lists_or_source_folder,
+                                                                                 seg_from_prev_stage_files,
+                                                                                 output_filename_truncated,
+                                                                                 num_processes_preprocessing)
+
+        return self.predict_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export)
+    
+    def initialize_from_trained_model_folder(self, model_training_output_dir: str,
+                                             use_folds: Union[Tuple[Union[int, str]], None],
+                                             checkpoint_name: str = 'checkpoint_final.pth'):
+        """
+        This is used when making predictions with a trained model
+        """
+        if use_folds is None:
+            use_folds = nnUNetPredictor.auto_detect_available_folds(model_training_output_dir, checkpoint_name)
+
+        dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
+        plans = load_json(join(model_training_output_dir, 'plans.json'))
+        plans_manager = PlansManager(plans)
+
+        if isinstance(use_folds, str):
+            use_folds = [use_folds]
+
+        parameters = []
+        for i, f in enumerate(use_folds):
+            f = int(f) if f != 'all' else f
+            checkpoint = torch.load(join(model_training_output_dir, f'fold_{f}', checkpoint_name),
+                                    map_location=torch.device('cpu'))
+            if i == 0:
+                trainer_name = checkpoint['trainer_name']
+                configuration_name = checkpoint['init_args']['configuration']
+                inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
+                    'inference_allowed_mirroring_axes' in checkpoint.keys() else None
+
+            parameters.append(checkpoint['network_weights'])
+
+        configuration_manager = plans_manager.get_configuration(configuration_name)
+        # restore network
+        num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_json)
+        trainer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
+                                                    trainer_name, 'nnunetv2.training.nnUNetTrainer')
+        network = trainer_class.build_network_architecture(plans_manager, dataset_json, configuration_manager,
+                                                           num_input_channels, enable_deep_supervision=False)
+        self.plans_manager = plans_manager
+        self.configuration_manager = configuration_manager
+        self.list_of_parameters = parameters
+        self.network = network
+        self.dataset_json = dataset_json
+        self.trainer_name = trainer_name
+        self.allowed_mirroring_axes = inference_allowed_mirroring_axes
+        self.label_manager = plans_manager.get_label_manager(dataset_json)
+        if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
+                and not isinstance(self.network, OptimizedModule):
+            print('compiling network')
+            self.network = torch.compile(self.network)
+            
+    def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
+        mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
+        prediction = self.network.forward_for_predict(x)
+
+        if mirror_axes is not None:
+            # check for invalid numbers in mirror_axes
+            # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
+            assert max(mirror_axes) <= len(x.shape) - 3, 'mirror_axes does not match the dimension of the input!'
+
+            num_predictons = 2 ** len(mirror_axes)
+            if 0 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (2,))), (2,))
+            if 1 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (3,))), (3,))
+            if 2 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (4,))), (4,))
+            if 0 in mirror_axes and 1 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (2, 3))), (2, 3))
+            if 0 in mirror_axes and 2 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (2, 4))), (2, 4))
+            if 1 in mirror_axes and 2 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (3, 4))), (3, 4))
+            if 0 in mirror_axes and 1 in mirror_axes and 2 in mirror_axes:
+                prediction += torch.flip(self.network.forward_for_predict(torch.flip(x, (2, 3, 4))), (2, 3, 4))
+            prediction /= num_predictons
+        return prediction
 
 def predict_entry_point_modelfolder():
     import argparse
