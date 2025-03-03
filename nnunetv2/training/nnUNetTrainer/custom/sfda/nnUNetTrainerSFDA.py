@@ -26,7 +26,7 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, resample_and_save
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictorUPLSFDA
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictorSFDA
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -731,7 +731,7 @@ class nnUNetTrainerSFDA(nnUNetTrainer):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
 
-        predictor = nnUNetPredictorUPLSFDA(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
+        predictor = nnUNetPredictorSFDA(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
                                     perform_everything_on_gpu=True, device=self.device, verbose=False,
                                     verbose_preprocessing=False, allow_tqdm=False)
         predictor.manual_initialization(self.network, self.plans_manager, self.configuration_manager, None,
@@ -808,7 +808,7 @@ class nnUNetTrainerSFDA(nnUNetTrainer):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
 
-        predictor = nnUNetPredictorUPLSFDA(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
+        predictor = nnUNetPredictorSFDA(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
                                     perform_everything_on_gpu=True, device=self.device, verbose=False,
                                     verbose_preprocessing=False, allow_tqdm=False)
         predictor.manual_initialization(self.network, self.plans_manager, self.configuration_manager, None,
