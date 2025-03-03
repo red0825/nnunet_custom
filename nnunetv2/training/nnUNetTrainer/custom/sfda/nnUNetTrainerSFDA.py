@@ -1353,7 +1353,7 @@ class nnUNetTrainerSFDA(nnUNetTrainer):
         return num_iterations_per_epoch
         
     def set_pre_num_trainer(self):
-        dataset_num_pre = 777
+        dataset_num_pre = 115
         trainer_name_pre = 'nnUNetTrainer'
         fold_cond = 'all'
         return dataset_num_pre, trainer_name_pre, fold_cond
