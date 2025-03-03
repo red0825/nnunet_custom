@@ -22,4 +22,4 @@ export nnUNet_results=".../nnUNet_trained_models"
 ```
 ### Instructions
 - [Loss Custom](documents/Loss_Custom.md)
-- UPL-SFDA 
+- [SFDA Custom](documents/SFDA_Custom.md) 
